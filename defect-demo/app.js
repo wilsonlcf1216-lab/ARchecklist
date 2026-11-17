@@ -205,6 +205,8 @@
     });
     wrap.innerHTML = '';
     wrap.dataset.built = '0';
+    // AR.js 會把 #arjs-video 加到 body，離開 AR 頁時要清走，否則其他頁面會透出相機畫面
+    $$('#arjs-video').forEach(function (v) { v.remove(); });
     arMarkers = {};
     currentSpace = null;
     updateArStatus();
