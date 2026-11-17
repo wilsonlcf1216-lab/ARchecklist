@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>醫院缺陷查驗 — AR 標記列印頁（Barcode 3x3）</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif; color: #1c1f24; background: #f2f3f5; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #5b6472; font-size: 13px; margin: 0 0 16px; }
+  .tips { background: #fff; border: 1px solid #e3e6eb; border-left: 4px solid #2f6df6; border-radius: 0 10px 10px 0; padding: 10px 14px; font-size: 13px; line-height: 1.6; margin-bottom: 18px; }
+  .tips b { color: #2f6df6; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .card { background: #fff; border: 1px dashed #c8ccd3; border-radius: 10px; padding: 14px; display: flex; gap: 14px; align-items: center; break-inside: avoid; }
+  .mk { flex: 0 0 auto; width: 160px; height: 160px; background: #fff; display: flex; align-items: center; justify-content: center; }
+  .mk img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+  .meta { flex: 1 1 auto; min-width: 0; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; font-weight: 700; letter-spacing: .3px; }
+  .place { font-size: 13px; margin-top: 3px; }
+  .name { font-size: 12.5px; color: #5b6472; margin-top: 2px; }
+  .val { font-size: 11.5px; color: #8a94a3; margin-top: 6px; font-family: ui-monospace, monospace; }
+  .val b { color: #1c1f24; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .tips { border: 1px solid #999; background: #fff; }
+    .grid { gap: 12px; }
+    .card { border: 1px solid #bbb; padding: 10px; }
+    .mk { width: 150px; height: 150px; }
+    h1 { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+  <h1>醫院缺陷查驗 — AR 標記列印頁</h1>
+  <p class="sub">AR.js Barcode 3x3 · 共 8 個示範空間（value 0–7）</p>
+  <div class="tips">
+    <b>列印注意：</b>用 <b>黑白</b> 列印、<b>啞面</b>紙（唔好用光面），<b>保留白色邊框</b>、唔好裁到黑格。<br>
+    貼好後喺 AR 頁面把手機對準標記（約 30–60cm），見到「已對準」即代表認到位置。標記尺寸建議 <b>≥ 12cm</b>。
+  </div>
+  <div class="grid">
+<div class="card"><div class="mk"><img alt="AR marker 0" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABtUlEQVR4nO3dsQkDQRAEwVuh/FM+JSB4ZIj75qsiGKNZd9cCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDWnB9zX3vv0hL+baQTwOj0ArsmUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMC3qcH/OAJPxv4yjUlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwLm9ID7esLjlJlGAK4pATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmQIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACw1voA8wkJ4H2pB6QAAAAASUVORK5CYII="></div><div class="meta"><div class="code">MAIN-3F-A-01</div><div class="place">主樓 · 3F / A / 01</div><div class="name">內科病房</div><div class="val">AR.js barcode 3x3 · value = <b>0</b></div></div></div>
+<div class="card"><div class="mk"><img alt="AR marker 1" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABtUlEQVR4nO3dsQ1CQQwFwTOi/5aPkORLiACOFTMVvGDl1GsBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwJrTA37X3vv0hI+baQRwOz0AXpMpATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYE3E8PeMM//GzgkmtKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTM6QE8ff9Vy0wjANeUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABYaz0AnlAJ4IyLFvYAAAAASUVORK5CYII="></div><div class="meta"><div class="code">MAIN-3F-A-02</div><div class="place">主樓 · 3F / A / 02</div><div class="name">內科病房</div><div class="val">AR.js barcode 3x3 · value = <b>1</b></div></div></div>
+<div class="card"><div class="mk"><img alt="AR marker 2" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABtUlEQVR4nO3dMQ7DMAwEQSr//7NcpA5SxcoaMy9gsWB7MwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw6/QB/2vvffqEn1urEcDr9AHwnUwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiWgsRDw9vjNhspgw/18UwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlwHTGR48fTpnOdopvSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzMwF7l8J4AJ+F+YAAAAASUVORK5CYII="></div><div class="meta"><div class="code">MAIN-3F-B-05</div><div class="place">主樓 · 3F / B / 05</div><div class="name">治療室</div><div class="val">AR.js barcode 3x3 · value = <b>2</b></div></div></div>
+<div class="card"><div class="mk"><img alt="AR marker 3" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABtElEQVR4nO3dsRHDMAwEQdD990wHKsCRRZ1mtwIEN0h/BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmnT7gufbep0/4u7UaAXxOHwC/yZQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwIaCwGX1282VAYb7uebEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBpjMe5P6plsp2im9KgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMzBeZpgng9XjFMQAAAABJRU5ErkJggg=="></div><div class="meta"><div class="code">MAIN-2F-A-03</div><div class="place">主樓 · 2F / A / 03</div><div class="name">藥房</div><div class="val">AR.js barcode 3x3 · value = <b>3</b></div></div></div>
+<div class="card"><div class="mk"><img alt="AR marker 4" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABvElEQVR4nO3dwQkDMRAEQck4/5TlEMwdWHJzVRHso9nvjAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY54+4H+ttU6f8HNzNgJ4nT4AvpMpATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEvE8fcMHmzYb98wlPGKW4xzclQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJ2j3WEPGFXZP9ayz2+KQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMMb4ANupDOC0boMmAAAAAElFTkSuQmCC"></div><div class="meta"><div class="code">EAST-2F-N-07</div><div class="place">東翼 · 2F / N / 07</div><div class="name">藥房</div><div class="val">AR.js barcode 3x3 · value = <b>4</b></div></div></div>
+<div class="card"><div class="mk"><img alt="AR marker 5" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABt0lEQVR4nO3dwQ0CQQwEQR8i/5SXEBBI7F6Lqgj8aPk7MwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw1+kD7mutdfqEn7uuRgCP0wfAezIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJSA5+kDPrB5s2H/fMI/jFJ8xzclQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJKSyb7p0W4Cd+UAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACYmRfm7QnmGs23OwAAAABJRU5ErkJggg=="></div><div class="meta"><div class="code">EAST-1F-S-02</div><div class="place">東翼 · 1F / S / 02</div><div class="name">候診區</div><div class="val">AR.js barcode 3x3 · value = <b>5</b></div></div></div>
+<div class="card"><div class="mk"><img alt="AR marker 6" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABtklEQVR4nO3dMQ7DMAwEQSr//7NcpA5SxfIiMy9gsWB7MwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAw6/QBz7X3Pn3Cz63VCOB1+gD4TqYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRLQWAh4u3mzoTKf8A98UwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlwFjHRzcPpxxRWWvxTQmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMgUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgJm5AO+1CeDGEIIrAAAAAElFTkSuQmCC"></div><div class="meta"><div class="code">OPD-G-E-03</div><div class="place">門診 · G / E / 03</div><div class="name">診室</div><div class="val">AR.js barcode 3x3 · value = <b>6</b></div></div></div>
+<div class="card"><div class="mk"><img alt="AR marker 7" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOIAAADiCAIAAADccoyAAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABtUlEQVR4nO3dsRHDMAwEQdD990wHKsCRRd1otwIEN0h/BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmnT7gufbep0/4u7UaAXxOHwC/yZQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwJkSoBMCZApATIlQKYEyJQAmRIgUwIaCwGXmzcbKvMJb+CbEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBMiVApgTIlACZEiBTAmRKgEwJkCkBxjoe5OaplumstfimBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZEqATAmQKQEyJUCmBMiUAJkSIFMCZAoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAzHwBmvwJ4Ct/eQkAAAAASUVORK5CYII="></div><div class="meta"><div class="code">OPD-G-E-04</div><div class="place">門診 · G / E / 04</div><div class="name">診室</div><div class="val">AR.js barcode 3x3 · value = <b>7</b></div></div></div>
+  </div>
+</body>
+</html>
