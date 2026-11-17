@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>醫院缺陷查驗 — 技術 Demo</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="appbar">
+  <h1>醫院缺陷查驗</h1>
+  <span class="tag">技術 Demo · AR.js</span>
+</div>
+
+<!-- 主檔 -->
+<section id="view-home" class="view active">
+  <div id="envWarn" class="env-warn"></div>
+
+  <div class="card-panel">
+    <h2>空間主檔</h2>
+    <p class="hint">每個空間一個「空間編號」＋一個 AR Barcode 標記。正式使用時以 CSV 匯入整份清單。</p>
+    <div class="btn-row">
+      <button id="btnStartAR" class="btn primary">▶ 開始 AR 查驗</button>
+      <button id="btnBarcodeGen" class="btn">產生 Barcode 標記（列印）</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button id="btnTemplate" class="btn">下載空間 CSV 範本</button>
+      <label class="btn">匯入空間 CSV<input id="fileSpaces" type="file" accept=".csv,text/csv" style="display:none"></label>
+      <button id="btnClear" class="btn">清除所有記錄</button>
+    </div>
+    <p class="hint" style="margin-top:12px">標記 0–7 對應下表各空間；列印 Barcode 標記後貼於該房間固定位置。</p>
+    <div class="table-wrap">
+      <table id="spaceTable">
+        <thead><tr><th>空間編號</th><th>地方</th><th>樓層</th><th>區域</th><th>房間</th><th>名稱</th><th>標記</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- AR 查驗 -->
+<section id="view-ar" class="view">
+  <div id="arSceneWrap"></div>
+  <div class="ar-overlay">
+    <div class="ar-top">
+      <div id="arStatus" class="ar-status wait">未對準標記</div>
+    </div>
+    <div class="ar-bottom">
+      <div class="ar-tip">對準 Barcode 標記 → 點擊畫面中缺陷位置，即會加上 Comment</div>
+      <div class="row">
+        <select id="arSpaceSelect"><option value="">— 手動選擇空間 —</option></select>
+      </div>
+      <div class="row">
+        <button id="btnAddComment" class="btn primary block">✎ 在此空間加 Comment</button>
+        <button id="btnExitAR" class="btn block">結束 AR</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 記錄 -->
+<section id="view-list" class="view">
+  <div class="card-panel">
+    <h2>Comment 記錄</h2>
+    <div class="btn-row" style="margin:10px 0 14px">
+      <select id="filterPrio" class="btn">
+        <option value="">全部優先級</option>
+        <option value="P1">P1 Critical</option>
+        <option value="P2">P2 High</option>
+        <option value="P3">P3 Medium</option>
+        <option value="P4">P4 Low</option>
+      </select>
+      <select id="filterLoc" class="btn"><option value="">全部地方</option></select>
+    </div>
+    <div id="defectList"></div>
+  </div>
+
+  <div class="card-panel">
+    <h3>哪個空間最多 Comment</h3>
+    <div id="dashSpace"></div>
+  </div>
+  <div class="card-panel">
+    <h3>哪個地方最多 Comment</h3>
+    <div id="dashLoc"></div>
+  </div>
+</section>
+
+<!-- 匯出 -->
+<section id="view-export" class="view">
+  <div class="card-panel">
+    <h2>匯出 / 交接</h2>
+    <p class="hint">Excel 含 4 個工作表：Defects、Summary_by_Space、Summary_by_Location、ReadMe（承辦商使用說明）。相片直接內嵌於 Excel。</p>
+    <div class="btn-row">
+      <button id="btnExcel" class="btn primary">⬇ 匯出 Excel（.xlsx）</button>
+      <button id="btnJSON" class="btn">⬇ 匯出 JSON（備份）</button>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <label class="btn">⬆ 匯入 JSON（合併）<input id="fileJSON" type="file" accept="application/json" style="display:none"></label>
+    </div>
+  </div>
+  <div class="card-panel">
+    <h3>部署提醒（iPhone 相機）</h3>
+    <p class="hint">相機與 AR 需要<b>安全來源</b>：<span class="mono">https://</span> 或 <span class="mono">http://localhost</span>。<span class="mono">file://</span> 雙擊或 <span class="mono">http://內網IP</span> 都無法開啟相機。資料全程存於裝置（IndexedDB）。</p>
+  </div>
+</section>
+
+<!-- Comment 表單 -->
+<div id="formModal" class="modal">
+  <div class="modal-sheet">
+    <h3>新增缺陷 Comment</h3>
+    <div class="panel-meta">
+      <div>空間：<b id="fSpace" class="mono"></b></div>
+      <div>位置：<span id="fAnchor" class="mono"></span></div>
+    </div>
+    <div class="field">
+      <label>優先級</label>
+      <div id="prioGroup" class="prio-group" data-value="P3">
+        <button class="prio-btn" data-prio="P1">P1<small>Critical</small></button>
+        <button class="prio-btn" data-prio="P2">P2<small>High</small></button>
+        <button class="prio-btn active" data-prio="P3">P3<small>Medium</small></button>
+        <button class="prio-btn" data-prio="P4">P4<small>Low</small></button>
+      </div>
+    </div>
+    <div class="field">
+      <label>缺陷類別</label>
+      <select id="fCategory"></select>
+    </div>
+    <div class="field">
+      <label>缺陷描述</label>
+      <textarea id="fDesc" placeholder="例：天花有滲水水漬約 30cm，有滴落風險"></textarea>
+    </div>
+    <div class="field">
+      <label>相片</label>
+      <div id="fPhotoPreview"><span class="muted">尚未拍照</span></div>
+      <button id="fPhotoBtn" class="btn" style="margin-top:8px">📷 拍照</button>
+    </div>
+    <div class="field">
+      <label>查驗人</label>
+      <input id="fReporter" type="text" placeholder="你的名字">
+    </div>
+    <div class="btn-row">
+      <button id="fSave" class="btn primary block">儲存</button>
+      <button id="fCancel" class="btn block">取消</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<nav class="tabbar">
+  <button class="tab active" data-view="home"><span class="ico">🏥</span>主檔</button>
+  <button class="tab" data-view="ar"><span class="ico">📷</span>AR 查驗</button>
+  <button class="tab" data-view="list"><span class="ico">📋</span>記錄</button>
+  <button class="tab" data-view="export"><span class="ico">📤</span>匯出</button>
+</nav>
+
+<script src="libs/aframe.min.js"></script>
+<script src="libs/aframe-ar.js"></script>
+<script src="libs/exceljs.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
