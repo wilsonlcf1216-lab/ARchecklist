@@ -689,5 +689,6 @@ async function boot() {
   document.getElementById("btnHelp").addEventListener("click", openHelp);
   document.getElementById("modalClose").addEventListener("click", closeModal);
   document.getElementById("modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 }
 boot().catch(e => { console.error(e); alert("Startup error: " + e.message); });
