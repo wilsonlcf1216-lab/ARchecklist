@@ -79,6 +79,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_photo(path)
             elif path == "/" or path == "/index.html":
                 self._serve_static("index.html")
+            elif path in ("/download", "/download/app", "/download/app.html"):
+                self._serve_download("Rectification-Tracker.html", "Rectification Tracker.html")
+            elif path in ("/download/python", "/download/rectrack.zip"):
+                self._serve_download("rectrack.zip", "rectrack.zip")
             elif path.startswith("/static/"):
                 self._serve_static(path[len("/static/"):])
             else:
@@ -316,6 +320,14 @@ class Handler(BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
         with open(full, "rb") as fh:
             self._bytes(fh.read(), ctype)
+
+    def _serve_download(self, rel, filename):
+        full = os.path.join(STATIC_DIR, rel)
+        if not os.path.isfile(full):
+            return self._json({"error": "Not found"}, 404)
+        ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
+        with open(full, "rb") as fh:
+            self._bytes(fh.read(), ctype, filename=filename)
 
     def _serve_photo(self, path):
         name = os.path.basename(urllib.parse.unquote(path[len("/photos/"):]))
