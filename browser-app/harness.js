@@ -21,7 +21,7 @@ console.log("items added:", ITEMS.length - before);
 // normalisation checks
 const eq = (a,b,label) => console.log((a===b?"PASS":"FAIL")+" "+label+" -> "+JSON.stringify(a));
 eq(normStatus("Open"), "Not started", "normStatus Open");
-eq(normStatus("Completed"), "Completed", "normStatus Completed");
+eq(normStatus("Completed"), "Rectified", "normStatus Completed->Rectified");
 eq(normStatus("closed"), "Verified", "normStatus closed");
 eq(normCategory("architetural"), "Architectural", "normCategory typo");
 eq(normSoa("satelliate station"), "Satellite Station", "normSoa typo");

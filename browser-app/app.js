@@ -4,7 +4,7 @@
 // ============================================================ reference ==
 const PRIORITY_LEVELS = ["1", "2", "3", "4"];
 const ISSUE_TYPES = ["Defect", "Incomplete works", "Maintenance concern", "Design change request"];
-const STATUSES = ["Not started", "In progress", "Completed", "Verified"];
+const STATUSES = ["Not started", "In progress", "Rectified", "Verified"];
 const GENERAL_CATEGORY_GROUPS = {
   "Architectural": ["Ceiling", "Floor", "Wall Finishes", "Door Hardware", "Window and Glazing",
     "Fixtures", "Toilet and Sanitary Fitment", "General Wet Areas", "Signage"],
@@ -22,7 +22,7 @@ const SOA_GROUPS = {
 };
 const CATEGORY_ALIASES = { "architetural": "Architectural", "architectural": "Architectural", "building_services": "Building Services", "building services": "Building Services" };
 const SOA_ALIASES = { "patient_accessible_toilet": "Patient Accessible Toilet", "satelliate station": "Satellite Station" };
-const STATUS_ALIASES = { "not started": "Not started", "notstarted": "Not started", "open": "Not started", "in progress": "In progress", "inprogress": "In progress", "wip": "In progress", "completed": "Completed", "complete": "Completed", "done": "Completed", "verified": "Verified", "closed": "Verified" };
+const STATUS_ALIASES = { "not started": "Not started", "notstarted": "Not started", "open": "Not started", "in progress": "In progress", "inprogress": "In progress", "wip": "In progress", "completed": "Rectified", "complete": "Rectified", "done": "Rectified", "rectified": "Rectified", "verified": "Verified", "closed": "Verified" };
 const GENERAL_CATEGORIES = Object.values(GENERAL_CATEGORY_GROUPS).flat();
 const SOAS = Object.values(SOA_GROUPS).flat();
 
@@ -55,7 +55,7 @@ const EXPORT_COLUMNS = [
   ["Type of Issue", "issue_type"], ["General Category", "general_category"],
   ["Details Description", "description"], ["Photo Reference Number", "photo_ref"],
   ["Expected Completion Date", "expected_completion_date"], ["Rectification Status", "status"],
-  ["Completed Date", "completed_date"], ["Verified Date", "verified_date"],
+  ["Rectified Date", "completed_date"], ["Verified Date", "verified_date"],
   ["Floor", "floor"], ["Ward/Unit", "ward_unit"], ["Source File", "source_file"],
 ];
 const COLS = [
@@ -159,7 +159,7 @@ function nowStamp() { return new Date().toISOString().slice(0, 19).replace("T", 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
 function syncStatusDates(it) {
-  if (["Completed", "Verified"].includes(it.status)) { if (!it.completed_date) it.completed_date = todayStr(); }
+  if (["Rectified", "Verified"].includes(it.status)) { if (!it.completed_date) it.completed_date = todayStr(); }
   else it.completed_date = "";
   if (it.status === "Verified") { if (!it.verified_date) it.verified_date = todayStr(); }
   else it.verified_date = "";
@@ -459,7 +459,7 @@ function toggleSort(field, additive) {
   state.page = 0; renderHead(); refresh();
 }
 function statusClass(s) { return "status-" + String(s || "").replace(/ /g, "."); }
-function isOverdue(it) { return it.expected_completion_date && !["Completed", "Verified"].includes(it.status) && it.expected_completion_date < todayStr(); }
+function isOverdue(it) { return it.expected_completion_date && !["Rectified", "Verified"].includes(it.status) && it.expected_completion_date < todayStr(); }
 
 function facetsSig() { const f = facets(); return FILTERABLE_COLUMNS.map(c => (f[c] || []).join("\u0001")).join("\u0002"); }
 
@@ -517,15 +517,16 @@ function updateSortInfo() { document.getElementById("sortInfo").textContent = st
 function renderSummary() {
   const byStatus = {}, byPriority = {}; let overdue = 0;
   ITEMS.forEach(i => { byStatus[i.status] = (byStatus[i.status] || 0) + 1; byPriority[i.priority || "(blank)"] = (byPriority[i.priority || "(blank)"] || 0) + 1; if (isOverdue(i)) overdue++; });
-  const doneCount = (byStatus["Completed"] || 0) + (byStatus["Verified"] || 0);
+  const doneCount = (byStatus["Rectified"] || 0) + (byStatus["Verified"] || 0);
   const pct = ITEMS.length ? Math.round((doneCount / ITEMS.length) * 100) : 0;
   const cards = [
     { n: ITEMS.length, l: "Total items" },
-    { n: pct + "%", l: "Completed (" + doneCount + "/" + ITEMS.length + ")", cls: "progress" },
     { n: overdue, l: "Overdue", cls: "overdue" },
   ];
   STATUSES.forEach(s => cards.push({ n: byStatus[s] || 0, l: s }));
   Object.keys(byStatus).filter(k => !STATUSES.includes(k)).forEach(k => cards.push({ n: byStatus[k], l: k || "(blank)" }));
+  // completion percentage card goes after Verified
+  cards.push({ n: pct + "%", l: "Rectified (" + doneCount + "/" + ITEMS.length + ")", cls: "progress" });
   document.getElementById("cards").innerHTML = cards.map(c => `<div class="card ${c.cls || ""}"><div class="n">${c.n}</div><div class="l">${esc(c.l)}</div></div>`).join("");
 }
 
@@ -686,7 +687,7 @@ function openHelp() {
       <p><b>Import:</b> click <b>Import Excel</b>, choose your handover inspection file(s) (same template as the "Slag List" sheet). Optionally choose a photos folder to auto-attach images by Photo Reference Number.</p>
       <p><b>Sort:</b> click a column header. Hold <b>Shift</b> and click another header to add a secondary sort (e.g. Type of Issue + Priority).</p>
       <p><b>Filter:</b> use the dropdown buttons; tick several values to combine conditions.</p>
-      <p><b>Update progress:</b> click a row to change Status and Expected Completion Date, and to add photos. Completed/Verified dates are stamped automatically.</p>
+      <p><b>Update progress:</b> click a row to change Status and Expected Completion Date, and to add photos. Rectified/Verified dates are stamped automatically.</p>
       <p><b>Export:</b> <b>Export .xlsx</b> / <b>.csv</b> exports exactly the current sorted &amp; filtered view.</p>
       <p><b>Backup:</b> use <b>Backup</b> regularly \u2014 it saves everything (items + photos) to one file you can keep in your GitHub repo or OneDrive.</p>
       <p><b>Where is my data?</b> ${storageOK ? "Saved automatically in this browser on this PC." : "<span style='color:#b91c1c'>Automatic saving is NOT available in this browser/mode \u2014 use Backup before closing, and Restore to load it next time. For autosave, open this file in Google Chrome or Microsoft Edge.</span>"}</p>
