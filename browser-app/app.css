@@ -119,6 +119,8 @@ a.btn { display: inline-flex; text-decoration: none; }
 .card .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
 .card.overdue .n { color: var(--p1); }
 .card.overdue { border-color: #fecaca; background: var(--p1-soft); }
+.card.progress .n { color: var(--done); }
+.card.progress { border-color: #bbf7d0; background: var(--done-soft); }
 
 /* ----------------------------------------------------------- toolbar -- */
 .toolbar {

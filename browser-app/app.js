@@ -517,7 +517,13 @@ function updateSortInfo() { document.getElementById("sortInfo").textContent = st
 function renderSummary() {
   const byStatus = {}, byPriority = {}; let overdue = 0;
   ITEMS.forEach(i => { byStatus[i.status] = (byStatus[i.status] || 0) + 1; byPriority[i.priority || "(blank)"] = (byPriority[i.priority || "(blank)"] || 0) + 1; if (isOverdue(i)) overdue++; });
-  const cards = [{ n: ITEMS.length, l: "Total items" }, { n: overdue, l: "Overdue", cls: "overdue" }];
+  const doneCount = (byStatus["Completed"] || 0) + (byStatus["Verified"] || 0);
+  const pct = ITEMS.length ? Math.round((doneCount / ITEMS.length) * 100) : 0;
+  const cards = [
+    { n: ITEMS.length, l: "Total items" },
+    { n: pct + "%", l: "Completed (" + doneCount + "/" + ITEMS.length + ")", cls: "progress" },
+    { n: overdue, l: "Overdue", cls: "overdue" },
+  ];
   STATUSES.forEach(s => cards.push({ n: byStatus[s] || 0, l: s }));
   Object.keys(byStatus).filter(k => !STATUSES.includes(k)).forEach(k => cards.push({ n: byStatus[k], l: k || "(blank)" }));
   document.getElementById("cards").innerHTML = cards.map(c => `<div class="card ${c.cls || ""}"><div class="n">${c.n}</div><div class="l">${esc(c.l)}</div></div>`).join("");
