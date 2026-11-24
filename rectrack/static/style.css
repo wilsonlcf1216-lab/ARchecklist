@@ -39,6 +39,7 @@ small { color: var(--muted); }
   padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 13px;
 }
 .btn:hover { background: #eef2f7; }
+a.btn { display: inline-block; text-decoration: none; }
 .btn.primary { background: var(--brand-2); border-color: var(--brand-2); color: #fff; }
 .btn.primary:hover { background: var(--brand); }
 .btn.small { padding: 4px 9px; font-size: 12px; }
