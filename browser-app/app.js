@@ -74,13 +74,14 @@ const COLS = [
   { label: "Source File", field: "source_file", sortable: true },
 ];
 const FILTER_DEFS = [
+  { col: "floor", label: "Floor", fromFacet: true },
+  { col: "ward_unit", label: "Ward/Unit", fromFacet: true },
+  { col: "soa", label: "SoA", fromFacet: true },
+  { col: "room", label: "Room", fromFacet: true },
   { col: "priority", label: "Priority", fromRef: "priority_levels" },
   { col: "issue_type", label: "Issue Type", fromRef: "issue_types" },
   { col: "general_category", label: "Category", fromRef: "general_category_groups" },
   { col: "status", label: "Status", fromRef: "statuses" },
-  { col: "soa", label: "SoA", fromRef: "soa_groups" },
-  { col: "floor", label: "Floor", fromFacet: true },
-  { col: "ward_unit", label: "Ward/Unit", fromFacet: true },
   { col: "source_file", label: "Source File", fromFacet: true },
 ];
 const DB_NAME = "rectrack", DB_VERSION = 2;
@@ -433,17 +434,18 @@ function clearAll() {
 // =============================================================== excel ==
 const HEADER_MAP = {
   "item no": "item_no", "item no.": "item_no", "item number": "item_no",
-  "soa": "soa", "scope of area": "soa", "scope of works area": "soa",
-  "soa (scope of area)": "soa", "area": "soa", "area type": "soa",
-  "room": "room", "room (e.g. 6-beds cubicle)": "room", "room / location": "room", "location": "room",
+  "soa": "soa", "soa (scope of area)": "soa", "scope of area": "soa",
+  "scope of works area": "soa", "scope of work area": "soa",
+  "area": "soa", "area type": "soa", "area / soa": "soa", "area/soa": "soa",
+  "room": "room", "room (e.g. 6-beds cubicle)": "room", "room / location": "room", "room/location": "room", "location": "room",
   "priority level": "priority", "priority": "priority",
   "type of issue": "issue_type", "issue type": "issue_type", "defect type": "issue_type",
   "general category": "general_category", "category": "general_category",
   "details description": "description", "description": "description", "defect description": "description",
   "photo reference number": "photo_ref", "photo ref": "photo_ref", "photo no": "photo_ref",
-  "photo reference": "photo_ref",
+  "photo reference": "photo_ref", "photo reference no": "photo_ref",
   "expected completion date": "expected_completion_date", "completion date": "expected_completion_date",
-  "target date": "expected_completion_date",
+  "target date": "expected_completion_date", "expected date": "expected_completion_date",
   "rectification status": "status", "status": "status",
 };
 const META_LABELS = { "project": "project", "prepared by": "prepared_by", "date": "inspection_date", "floor": "floor", "ward/unit": "ward_unit" };
@@ -485,10 +487,18 @@ function parseWorkbook(buf, filename) {
   }
   if (headerIdx < 0) throw new Error("Could not find the header row. Expected a row with 'Item No.' and 'Priority Level' (the standard 'Slag List' template).");
   const rows = [];
+  // For merged cells (e.g. SoA / Room spanning several rows), carry the value downwards.
+  const FILL_DOWN = ["soa", "room", "floor", "ward_unit"];
+  const lastVal = {};
   for (let i = headerIdx + 1; i < aoa.length; i++) {
     const row = aoa[i] || [];
     const rec = {};
     for (const ci in colMap) rec[colMap[ci]] = cleanCell(row[ci]);
+    // fill-down for grouping columns that are commonly merged
+    FILL_DOWN.forEach(f => {
+      if (rec[f]) lastVal[f] = rec[f];
+      else if (lastVal[f]) rec[f] = lastVal[f];
+    });
     if (!["soa", "room", "priority", "issue_type", "general_category", "description", "photo_ref", "expected_completion_date"].some(f => rec[f])) continue;
     rec.floor = meta.floor; rec.ward_unit = meta.ward_unit;
     rows.push(rec);
@@ -602,7 +612,10 @@ function makeMulti(def) {
     clearBtn.textContent = "Unselect all"; clearBtn.style.width = "100%";
     clearBtn.addEventListener("click", e => {
       e.stopPropagation();
-      state.filters[def.col] = []; render(); state.page = 0; refresh();
+      state.filters[def.col] = [];
+      // also uncheck every checkbox in this menu so the ticks disappear
+      menu.querySelectorAll('input[type="checkbox"]').forEach(cb => (cb.checked = false));
+      render(); state.page = 0; refresh();
     });
     foot.appendChild(clearBtn); menu.appendChild(foot);
   }
@@ -672,6 +685,7 @@ function refresh() {
   const counts = new Map(); PHOTOS.forEach(p => counts.set(p.item_id, (counts.get(p.item_id) || 0) + 1));
   renderRows(pageItems, counts);
   updateSortInfo();
+  renderFilteredSummary(all);
   document.getElementById("pageInfo").textContent = `${total ? start + 1 : 0}\u2013${Math.min(total, start + state.pageSize)} of ${total}`;
   document.getElementById("btnPrev").disabled = state.page === 0;
   document.getElementById("btnNext").disabled = start + state.pageSize >= total;
@@ -727,6 +741,21 @@ function renderSummary() {
   // completion percentage card goes after Verified
   cards.push({ n: pct + "%", l: "Rectified (" + doneCount + "/" + ITEMS.length + ")", cls: "progress" });
   document.getElementById("cards").innerHTML = cards.map(c => `<div class="card ${c.cls || ""}"><div class="n">${c.n}</div><div class="l">${esc(c.l)}</div></div>`).join("");
+}
+function renderFilteredSummary(items) {
+  const el = document.getElementById("filteredSummary");
+  if (!el) return;
+  const hasFilter = state.q || Object.values(state.filters).some(v => v && v.length);
+  if (!hasFilter) { el.hidden = true; el.innerHTML = ""; return; }
+  const byStatus = {}; let overdue = 0;
+  items.forEach(i => { byStatus[i.status] = (byStatus[i.status] || 0) + 1; if (isOverdue(i)) overdue++; });
+  el.hidden = false;
+  el.innerHTML = `<span class="fs-label">Selected (${items.length}):</span>` +
+    `<span class="fs-chip overdue" title="Overdue">Overdue: ${overdue}</span>` +
+    `<span class="fs-chip not-started" title="Not started">Not started: ${byStatus["Not started"] || 0}</span>` +
+    `<span class="fs-chip in-progress" title="In progress">In progress: ${byStatus["In progress"] || 0}</span>` +
+    `<span class="fs-chip rectified" title="Rectified">Rectified: ${byStatus["Rectified"] || 0}</span>` +
+    `<span class="fs-chip verified" title="Verified">Verified: ${byStatus["Verified"] || 0}</span>`;
 }
 
 // --------------------------------------------------------------- modal --

@@ -114,6 +114,25 @@ a.btn { display: inline-flex; text-decoration: none; }
 .shared-indicator[hidden] { display: none; }
 .shared-indicator button { margin-left: auto; }
 
+.filtered-summary {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  padding: 10px 24px; margin: 0 24px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+  font-size: 13px; color: #1e3a8a;
+}
+.filtered-summary[hidden] { display: none; }
+.filtered-summary .fs-label { font-weight: 700; margin-right: 4px; }
+.filtered-summary .fs-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #fff; border: 1px solid #bfdbfe; border-radius: 999px;
+  padding: 3px 10px; font-weight: 600;
+}
+.filtered-summary .fs-chip.overdue { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.filtered-summary .fs-chip.not-started { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+.filtered-summary .fs-chip.in-progress { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.filtered-summary .fs-chip.rectified { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.filtered-summary .fs-chip.verified { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+
 /* ------------------------------------------------------------- cards -- */
 .cards {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
