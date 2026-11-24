@@ -109,6 +109,17 @@ a.btn { display: inline-flex; text-decoration: none; }
 }
 .banner.show { display: block; }
 .banner b { color: #7c2d12; }
+.banner.shared { background: #ecfdf5; color: #065f46; border-bottom-color: #a7f3d0; }
+.banner.shared b { color: #064e3b; }
+
+.shared-indicator {
+  display: flex; align-items: center; gap: 8px;
+  background: #ecfdf5; color: #065f46;
+  border-bottom: 1px solid #a7f3d0;
+  padding: 7px 24px; font-size: 13px; font-weight: 600;
+}
+.shared-indicator[hidden] { display: none; }
+.shared-indicator button { margin-left: auto; }
 
 /* ------------------------------------------------------------- cards -- */
 .cards {
@@ -334,6 +345,8 @@ td.desc { max-width: 340px; }
   </div>
 </header>
 
+<div id="sharedIndicator" class="shared-indicator" hidden></div>
+
 <section class="cards" id="cards"></section>
 
 <section class="toolbar">
@@ -486,7 +499,7 @@ const FILTER_DEFS = [
   { col: "ward_unit", label: "Ward/Unit", fromFacet: true },
   { col: "source_file", label: "Source File", fromFacet: true },
 ];
-const DB_NAME = "rectrack", DB_VERSION = 1;
+const DB_NAME = "rectrack", DB_VERSION = 2;
 
 // ============================================================== storage ==
 let db = null, storageOK = false, lsOK = false;
@@ -506,6 +519,7 @@ async function dbInit() {
         if (!d.objectStoreNames.contains("items")) d.createObjectStore("items", { keyPath: "id" });
         if (!d.objectStoreNames.contains("photos")) { const s = d.createObjectStore("photos", { keyPath: "id" }); s.createIndex("item_id", "item_id"); }
         if (!d.objectStoreNames.contains("meta")) d.createObjectStore("meta", { keyPath: "key" });
+        if (!d.objectStoreNames.contains("shared")) d.createObjectStore("shared", { keyPath: "key" });
       };
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error || new Error("indexedDB error"));
@@ -531,6 +545,20 @@ async function dbInit() {
   ITEMS.sort((a, b) => a.id - b.id);
   SEQ.items = Math.max(ITEMS.reduce((m, i) => Math.max(m, i.id), 0), META.seq_items || 0);
   SEQ.photos = Math.max(PHOTOS.reduce((m, p) => Math.max(m, p.id), 0), META.seq_photos || 0);
+
+  // If a shared data file was previously linked, load data from it (source of truth).
+  const h = await loadSharedHandle();
+  if (h) {
+    try {
+      sharedHandle = h; sharedFileName = h.name;
+      await loadDataFromShared();
+      startSharedPolling();
+    } catch (e) {
+      // If the file is no longer accessible (e.g. revoked or deleted), drop back to local.
+      sharedHandle = null; sharedFileName = "";
+      await clearSharedHandleDb();
+    }
+  }
 }
 
 let _lsTimer = null;
@@ -549,12 +577,190 @@ function persistPhoto(p) {
   try { db.transaction("photos", "readwrite").objectStore("photos").put({ id: p.id, item_id: p.item_id, name: p.name, kind: p.kind, blob: p.blob }); } catch (e) { }
 }
 function removePhotoRow(id) { if (!storageOK) { MEM_BLOBS.delete(id); return; } try { db.transaction("photos", "readwrite").objectStore("photos").delete(id); } catch (e) { } }
-function putMeta(k, v) { META[k] = v; if (storageOK) { try { db.transaction("meta", "readwrite").objectStore("meta").put({ key: k, value: v }); } catch (e) { } } else scheduleLsSave(); }
+function putMeta(k, v) { META[k] = v; if (storageOK) { try { db.transaction("meta", "readwrite").objectStore("meta").put({ key: k, value: v }); } catch (e) { } } else scheduleLsSave(); scheduleSharedSave(); }
 
 async function photoBlob(id) {
   if (!storageOK) return MEM_BLOBS.get(id) || null;
   const p = await idbReq(db.transaction("photos").objectStore("photos").get(id));
   return p ? p.blob : null;
+}
+
+// ===================================================== shared data file ==
+// Option 2: a single .json file on a shared drive is the source of truth.
+// Multiple workers open the same file; changes are written back to it.
+let sharedHandle = null;
+let sharedFileName = "";
+let lastWrittenSharedText = "";
+let _sharedSaveTimer = null;
+let _sharedPollTimer = null;
+let _sharedBusy = false;
+
+function isSharedMode() { return !!sharedHandle; }
+function supportsSharedFile() { return typeof window !== "undefined" && typeof window.showOpenFilePicker === "function" && typeof window.showSaveFilePicker === "function"; }
+
+async function saveSharedHandle(h) {
+  if (!storageOK) return;
+  try { db.transaction("shared", "readwrite").objectStore("shared").put({ key: "handle", handle: h, name: h.name }); } catch (e) { /* ignore */ }
+}
+async function clearSharedHandleDb() {
+  if (!storageOK) return;
+  try { db.transaction("shared", "readwrite").objectStore("shared").delete("handle"); } catch (e) { /* ignore */ }
+}
+async function loadSharedHandle() {
+  if (!storageOK) return null;
+  try { const r = await idbReq(db.transaction("shared").objectStore("shared").get("handle")); return r && r.handle ? r.handle : null; }
+  catch (e) { return null; }
+}
+
+async function readSharedFileData() {
+  const file = await sharedHandle.getFile();
+  const text = await file.text();
+  return JSON.parse(text);
+}
+async function writeSharedFileData() {
+  const data = await buildBackup();
+  const text = JSON.stringify(data);
+  const writable = await sharedHandle.createWritable();
+  await writable.write(text);
+  await writable.close();
+  lastWrittenSharedText = text;
+}
+
+function scheduleSharedSave() {
+  if (!isSharedMode()) return;
+  clearTimeout(_sharedSaveTimer);
+  _sharedSaveTimer = setTimeout(async () => {
+    _sharedSaveTimer = null;
+    try { await writeSharedFileData(); updateSharedIndicator(); }
+    catch (e) { toast("Failed to save shared file: " + e.message, 5000); }
+  }, 500);
+}
+
+async function loadDataFromShared() {
+  const obj = await readSharedFileData();
+  lastWrittenSharedText = JSON.stringify(obj);
+  if (!obj || !Array.isArray(obj.items)) return;
+  // Replace in-memory data with the file's content (file is source of truth).
+  ITEMS = []; PHOTOS = []; META = {}; MEM_BLOBS.clear();
+  if (obj.seq) { SEQ.items = obj.seq.items || 0; SEQ.photos = obj.seq.photos || 0; } else { SEQ.items = 0; SEQ.photos = 0; }
+  (obj.items || []).forEach(it => { ITEMS.push(it); });
+  SEQ.items = Math.max(SEQ.items, ITEMS.reduce((m, i) => Math.max(m, i.id), 0));
+  for (const p of (obj.photos || [])) {
+    const meta = { id: p.id, item_id: p.item_id, name: p.name, kind: p.kind };
+    PHOTOS.push(meta);
+    if (p.data) {
+      try {
+        const blob = await dataURLToBlob(p.data);
+        if (storageOK) persistPhoto({ ...meta, blob }); else MEM_BLOBS.set(p.id, blob);
+      } catch (e) { /* skip broken photo */ }
+    }
+    SEQ.photos = Math.max(SEQ.photos, p.id);
+  }
+  META = obj.meta || {};
+  if (storageOK) {
+    try {
+      const tx = db.transaction(["items", "photos", "meta"], "readwrite");
+      tx.objectStore("items").clear(); tx.objectStore("photos").clear(); tx.objectStore("meta").clear();
+      ITEMS.forEach(it => tx.objectStore("items").put(it));
+      (obj.photos || []).forEach(p => {
+        if (p.data) dataURLToBlob(p.data).then(b => persistPhoto({ id: p.id, item_id: p.item_id, name: p.name, kind: p.kind, blob: b })).catch(() => {});
+      });
+    } catch (e) { /* ignore */ }
+  } else if (lsOK) { scheduleLsSave(); }
+}
+
+async function linkSharedFile() {
+  if (!supportsSharedFile()) { toast("This browser does not support shared-file mode. Use Google Chrome or Microsoft Edge.", 6000); return; }
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: "Rectification Tracker data file", accept: { "application/json": [".json"] } }],
+      multiple: false,
+    });
+    sharedHandle = handle; sharedFileName = handle.name;
+    await saveSharedHandle(handle);
+    try { await loadDataFromShared(); }
+    catch (e) {
+      // File may be empty/new — initialise it with current data.
+      await writeSharedFileData();
+    }
+    updateSharedIndicator(); refresh();
+    startSharedPolling();
+    toast("Linked shared file: " + handle.name);
+  } catch (e) {
+    if (e && e.name !== "AbortError") toast("Could not link file: " + e.message, 5000);
+  }
+}
+
+async function createSharedFile() {
+  if (!supportsSharedFile()) { toast("This browser does not support shared-file mode. Use Google Chrome or Microsoft Edge.", 6000); return; }
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: `rectrack_shared_${todayStr()}.json`,
+      types: [{ description: "Rectification Tracker data file", accept: { "application/json": [".json"] } }],
+    });
+    sharedHandle = handle; sharedFileName = handle.name;
+    await saveSharedHandle(handle);
+    await writeSharedFileData();
+    updateSharedIndicator();
+    startSharedPolling();
+    toast("Created shared file: " + handle.name);
+  } catch (e) {
+    if (e && e.name !== "AbortError") toast("Could not create file: " + e.message, 5000);
+  }
+}
+
+async function unlinkSharedFile() {
+  if (!confirm("Unlink the shared data file? You'll go back to saving data locally in this browser.")) return;
+  sharedHandle = null; sharedFileName = ""; lastWrittenSharedText = "";
+  clearTimeout(_sharedSaveTimer);
+  if (_sharedPollTimer) { clearInterval(_sharedPollTimer); _sharedPollTimer = null; }
+  await clearSharedHandleDb();
+  updateSharedIndicator();
+  toast("Unlinked shared file — saving locally now");
+}
+
+async function reloadSharedFile() {
+  if (!isSharedMode()) return;
+  _sharedBusy = true;
+  try {
+    await loadDataFromShared();
+    updateSharedIndicator(); refresh();
+    toast("Reloaded from shared file");
+  } catch (e) { toast("Reload failed: " + e.message, 5000); }
+  finally { _sharedBusy = false; }
+}
+
+async function pollSharedFile() {
+  if (!isSharedMode() || _sharedBusy || _sharedSaveTimer) return; // don't reload while a save is pending
+  try {
+    const file = await sharedHandle.getFile();
+    const text = await file.text();
+    if (text && text !== lastWrittenSharedText) {
+      // File changed by another user — reload from it.
+      await loadDataFromShared();
+      updateSharedIndicator(); refresh();
+      toast("Shared data updated by another user — reloaded.");
+    }
+  } catch (e) { /* transient */ }
+}
+
+function startSharedPolling() {
+  if (_sharedPollTimer) clearInterval(_sharedPollTimer);
+  _sharedPollTimer = setInterval(pollSharedFile, 20000); // every 20 seconds
+}
+
+function updateSharedIndicator() {
+  const el = document.getElementById("sharedIndicator");
+  if (!el) return;
+  if (isSharedMode()) {
+    el.hidden = false;
+    el.innerHTML = `<span title="Shared data file">${esc(sharedFileName)}</span> <button class="btn small" id="sharedReload" title="Reload from shared file">⟳</button> <button class="btn small" id="sharedUnlink" title="Unlink shared file">×</button>`;
+    const r = document.getElementById("sharedReload"); if (r) r.addEventListener("click", reloadSharedFile);
+    const u = document.getElementById("sharedUnlink"); if (u) u.addEventListener("click", unlinkSharedFile);
+  } else {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
 }
 
 // ------------------------------------------------------------- data ops --
@@ -591,6 +797,7 @@ function addItem(data) {
   };
   syncStatusDates(it);
   ITEMS.push(it); persistItem(it);
+  scheduleSharedSave();
   return it;
 }
 
@@ -604,6 +811,7 @@ function updateItem(id, data) {
   syncStatusDates(it);
   it.updated_at = nowStamp();
   persistItem(it);
+  scheduleSharedSave();
   return it;
 }
 
@@ -612,6 +820,7 @@ function deleteItem(id) {
   PHOTOS = PHOTOS.filter(p => p.item_id !== id);
   ITEMS = ITEMS.filter(x => x.id !== id);
   removeItemRow(id);
+  scheduleSharedSave();
 }
 
 function photosFor(itemId) { return PHOTOS.filter(p => p.item_id === itemId); }
@@ -620,18 +829,21 @@ function addPhotoBlob(itemId, name, kind, blob) {
   const id = ++SEQ.photos; putMeta("seq_photos", SEQ.photos);
   const p = { id, item_id: itemId, name: name, kind: kind || "" };
   PHOTOS.push(p); persistPhoto({ ...p, blob });
+  scheduleSharedSave();
   return p;
 }
 function deletePhoto(id) {
   const p = PHOTOS.find(x => x.id === id);
   if (p) removePhotoRow(p.id);
   PHOTOS = PHOTOS.filter(x => x.id !== id);
+  scheduleSharedSave();
 }
 
 function clearAll() {
   ITEMS = []; PHOTOS = []; META = {}; MEM_BLOBS.clear(); SEQ.items = 0; SEQ.photos = 0;
   if (storageOK) { try { ["items", "photos", "meta"].forEach(s => db.transaction(s, "readwrite").objectStore(s).clear()); } catch (e) { } }
   else if (lsOK) { try { localStorage.removeItem("rectrack_data"); } catch (e) { } }
+  scheduleSharedSave();
 }
 
 // =============================================================== excel ==
@@ -1134,6 +1346,9 @@ async function matchFolderPhotos(files) {
 // -------------------------------------------------------------- backup --
 function openBackup() {
   showModal("Backup & restore", body => {
+    const sharedInfo = isSharedMode()
+      ? `<div class="meta-note" style="background:#ecfdf5;border-color:#a7f3d0;color:#065f46"><b>Shared mode active:</b> data is saved to <b>${esc(sharedFileName)}</b>. Other workers who link this same file see your changes.</div>`
+      : `<div class="meta-note">Want multiple workers to see the same data? Put one <b>.json</b> file on a shared drive (OneDrive, SharePoint, network drive) and link it here.</div>`;
     body.innerHTML = `<div class="meta-note">A backup contains every item and every photo. Use it to move the tracker to another PC or to keep a safe copy during the 4-month project.</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0">
         <button class="btn primary" id="btnSaveBackup">Save backup (.json)</button>
@@ -1142,7 +1357,15 @@ function openBackup() {
         <button class="btn danger" id="btnWipe">Delete all data</button>
       </div>
       <input type="file" id="restoreFile" accept=".json" hidden>
-      <div class="meta-note" id="backupInfo"></div>`;
+      <hr style="border:none;border-top:1px solid var(--line);margin:16px 0">
+      <h3 style="font-size:14px;margin:0 0 8px">Shared data file (multi-worker)</h3>
+      ${sharedInfo}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn" id="btnLinkShared">Link existing .json file</button>
+        <button class="btn" id="btnCreateShared">Create new shared file</button>
+        ${isSharedMode() ? `<button class="btn" id="btnReloadShared">⟳ Reload from file</button> <button class="btn" id="btnUnlinkShared">Unlink shared file</button>` : ""}
+      </div>
+      <div class="meta-note" id="backupInfo">${supportsSharedFile() ? "" : "<span style='color:#b91c1c'>Your browser does not support shared-file mode. Open this file in <b>Google Chrome</b> or <b>Microsoft Edge</b>.</span>"}</div>`;
     document.getElementById("btnSaveBackup").addEventListener("click", async () => {
       const data = await buildBackup();
       downloadBlob(new Blob([JSON.stringify(data)], { type: "application/json" }), `rectrack_backup_${todayStr()}.json`);
@@ -1161,6 +1384,14 @@ function openBackup() {
       if (!confirm("Delete ALL items and photos? This cannot be undone.")) return;
       clearAll(); toast("All data deleted"); closeModal(); refresh();
     });
+    const linkBtn = document.getElementById("btnLinkShared");
+    if (linkBtn) linkBtn.addEventListener("click", async () => { await linkSharedFile(); openBackup(); });
+    const createBtn = document.getElementById("btnCreateShared");
+    if (createBtn) createBtn.addEventListener("click", async () => { await createSharedFile(); openBackup(); });
+    const reloadBtn = document.getElementById("btnReloadShared");
+    if (reloadBtn) reloadBtn.addEventListener("click", reloadSharedFile);
+    const unlinkBtn = document.getElementById("btnUnlinkShared");
+    if (unlinkBtn) unlinkBtn.addEventListener("click", async () => { await unlinkSharedFile(); openBackup(); });
   });
 }
 async function deleteAllData() {
@@ -1179,7 +1410,8 @@ function openHelp() {
       <p><b>Lock &amp; password:</b> the app starts <b>locked</b> (read-only). Click the <b>&#128274; Locked</b> button and enter the password to add, edit, or delete items. Default password is <b>rectrack</b> \u2014 change it anytime via <b>Backup &rarr; Change password</b>.</p>
       <p><b>Delete all:</b> use the <b>Delete All</b> button (top bar) or <b>Backup &rarr; Delete all data</b> \u2014 both require the password and a confirmation.</p>
       <p><b>Backup:</b> use <b>Backup</b> regularly \u2014 it saves everything (items + photos) to one file you can keep in your GitHub repo or OneDrive.</p>
-      <p><b>Where is my data?</b> ${storageOK ? "Saved automatically in this browser on this PC." : "<span style='color:#b91c1c'>Automatic saving is NOT available in this browser/mode \u2014 use Backup before closing, and Restore to load it next time. For autosave, open this file in Google Chrome or Microsoft Edge.</span>"}</p>
+      <p><b>Shared data file (multiple workers):</b> put one <b>.json</b> file on a shared drive. Open <b>Backup &rarr; Shared data file &rarr; Link existing .json file</b> (or <b>Create new shared file</b>). From then on, every change saves to that file and every worker who links the same file sees the same data. Changes are auto-reloaded every 20 seconds; use <b>⟳</b> to reload manually. <b>Requires Chrome or Edge.</b> Avoid two people editing the <i>same</i> item at the same moment (last edit wins).</p>
+      <p><b>Where is my data?</b> ${isSharedMode() ? `<b>Shared mode:</b> saved to <b>${esc(sharedFileName)}</b> on your shared drive.` : (storageOK ? "Saved automatically in this browser on this PC." : "<span style='color:#b91c1c'>Automatic saving is NOT available in this browser/mode \u2014 use Backup before closing, and Restore to load it next time. For autosave, open this file in Google Chrome or Microsoft Edge.</span>")}</p>
     </div>`;
   });
 }
@@ -1187,7 +1419,11 @@ function openHelp() {
 // ================================================================ boot ==
 async function boot() {
   await dbInit();
-  if (!storageOK) {
+  if (isSharedMode()) {
+    const b = document.getElementById("storageBanner");
+    b.classList.add("show", "shared");
+    b.innerHTML = `Shared mode — data is saved to <b>${esc(sharedFileName)}</b>. Changes by other workers are auto-reloaded every 20 seconds. Use the <b>⟳</b> button next to the filename to reload manually.`;
+  } else if (!storageOK) {
     const b = document.getElementById("storageBanner");
     b.classList.add("show");
     b.innerHTML = lsOK
@@ -1196,6 +1432,7 @@ async function boot() {
   }
 
   renderHead();
+  updateSharedIndicator();
   document.addEventListener("click", () => document.querySelectorAll(".multi-menu").forEach(m => (m.hidden = true)));
   refresh();
 

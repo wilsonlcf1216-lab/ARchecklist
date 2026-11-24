@@ -102,6 +102,17 @@ a.btn { display: inline-flex; text-decoration: none; }
 }
 .banner.show { display: block; }
 .banner b { color: #7c2d12; }
+.banner.shared { background: #ecfdf5; color: #065f46; border-bottom-color: #a7f3d0; }
+.banner.shared b { color: #064e3b; }
+
+.shared-indicator {
+  display: flex; align-items: center; gap: 8px;
+  background: #ecfdf5; color: #065f46;
+  border-bottom: 1px solid #a7f3d0;
+  padding: 7px 24px; font-size: 13px; font-weight: 600;
+}
+.shared-indicator[hidden] { display: none; }
+.shared-indicator button { margin-left: auto; }
 
 /* ------------------------------------------------------------- cards -- */
 .cards {
