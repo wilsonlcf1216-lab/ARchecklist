@@ -67,6 +67,7 @@ const COLS = [
   { label: "Type of Issue", field: "issue_type", sortable: true },
   { label: "General Category", field: "general_category", sortable: true },
   { label: "Details Description", field: "description", sortable: true, cls: "desc" },
+  { label: "Photo Ref", field: "photo_ref", sortable: true },
   { label: "Expected Completion", field: "expected_completion_date", sortable: true },
   { label: "Status", field: "status", sortable: true },
   { label: "Photos", field: "photos", sortable: false },
@@ -232,11 +233,19 @@ function clearAll() {
 
 // =============================================================== excel ==
 const HEADER_MAP = {
-  "item no": "item_no", "item no.": "item_no", "soa": "soa", "room": "room",
-  "room (e.g. 6-beds cubicle)": "room", "priority level": "priority", "type of issue": "issue_type",
-  "general category": "general_category", "details description": "description",
-  "photo reference number": "photo_ref", "expected completion date": "expected_completion_date",
-  "rectification status": "status",
+  "item no": "item_no", "item no.": "item_no", "item number": "item_no",
+  "soa": "soa", "scope of area": "soa", "scope of works area": "soa",
+  "soa (scope of area)": "soa", "area": "soa", "area type": "soa",
+  "room": "room", "room (e.g. 6-beds cubicle)": "room", "room / location": "room", "location": "room",
+  "priority level": "priority", "priority": "priority",
+  "type of issue": "issue_type", "issue type": "issue_type", "defect type": "issue_type",
+  "general category": "general_category", "category": "general_category",
+  "details description": "description", "description": "description", "defect description": "description",
+  "photo reference number": "photo_ref", "photo ref": "photo_ref", "photo no": "photo_ref",
+  "photo reference": "photo_ref",
+  "expected completion date": "expected_completion_date", "completion date": "expected_completion_date",
+  "target date": "expected_completion_date",
+  "rectification status": "status", "status": "status",
 };
 const META_LABELS = { "project": "project", "prepared by": "prepared_by", "date": "inspection_date", "floor": "floor", "ward/unit": "ward_unit" };
 
@@ -385,6 +394,19 @@ function makeMulti(def) {
     row.appendChild(cb); row.appendChild(document.createTextNode(val));
     menu.appendChild(row);
   });
+  // "Unselect all" button at the bottom of the pull list
+  if (opts.length) {
+    const foot = document.createElement("div");
+    foot.style.cssText = "border-top:1px solid var(--line);padding:6px 6px 2px;margin-top:4px;";
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button"; clearBtn.className = "btn small";
+    clearBtn.textContent = "Unselect all"; clearBtn.style.width = "100%";
+    clearBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      state.filters[def.col] = []; render(); state.page = 0; refresh();
+    });
+    foot.appendChild(clearBtn); menu.appendChild(foot);
+  }
   btn.addEventListener("click", e => { e.stopPropagation(); const was = menu.hidden; document.querySelectorAll(".multi-menu").forEach(m => (m.hidden = true)); menu.hidden = !was; });
   wrap.appendChild(btn); wrap.appendChild(menu); render();
   return wrap;
@@ -399,7 +421,7 @@ function matches(it) {
   for (const [col, vals] of Object.entries(state.filters)) { if (vals && vals.length && !vals.includes(it[col] || "")) return false; }
   if (state.q) {
     const s = state.q.toLowerCase();
-    const hay = [it.description, it.room, it.photo_ref, it.item_no, it.remarks].map(x => (x || "").toLowerCase()).join(" ");
+    const hay = [it.description, it.room, it.photo_ref, it.item_no, it.remarks, it.soa, it.general_category, it.issue_type, it.status, it.floor, it.ward_unit, it.source_file].map(x => (x || "").toLowerCase()).join(" ");
     if (!hay.includes(s)) return false;
   }
   return true;
@@ -462,20 +484,24 @@ function refresh() {
 function renderRows(items, counts) {
   const body = document.getElementById("gridBody"); body.innerHTML = "";
   document.getElementById("emptyHint").hidden = items.length > 0;
-  items.forEach(it => {
+  const start = state.page * state.pageSize;
+  items.forEach((it, i) => {
     const tr = document.createElement("tr");
     tr.addEventListener("click", () => openItem(it.id));
     const n = counts.get(it.id) || 0;
-    const photoCell = n ? `<img class="thumb" data-photo="${firstPhotoId(it.id)}" alt=""> <span class="photocount">${n}</span>` : `<span class="photocount">none</span>`;
+    const photoCell = n
+      ? `<img class="thumb" data-photo="${firstPhotoId(it.id)}" alt=""><span class="photocount" title="${n} photo(s)">${n}</span>`
+      : `<span class="photocount" title="No photos">0</span>`;
     const cells = [
-      it.id, esc(it.item_no), esc(it.soa), esc(it.room),
+      start + i + 1, esc(it.item_no), esc(it.soa), esc(it.room),
       it.priority ? `<span class="prio prio-${esc(it.priority)}">${esc(it.priority)}</span>` : "",
       esc(it.issue_type), esc(it.general_category), `<div class="desc">${esc(it.description)}</div>`,
+      esc(it.photo_ref),
       esc(it.expected_completion_date) + (isOverdue(it) ? ` <span class="overdue-text">(overdue)</span>` : ""),
       `<span class="badge ${statusClass(it.status)}">${esc(it.status)}</span>`,
       photoCell, esc(it.source_file),
     ];
-    cells.forEach(html => { const td = document.createElement("td"); td.innerHTML = html == null ? "" : html; if (html && String(html).indexOf('class="desc"') >= 0) td.className = "desc"; tr.appendChild(td); });
+    cells.forEach((html, ci) => { const td = document.createElement("td"); td.innerHTML = html == null ? "" : html; const col = COLS[ci]; if (col && col.cls) td.className = col.cls; tr.appendChild(td); });
     body.appendChild(tr);
   });
 }
