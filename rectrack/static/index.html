@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rectification Tracker</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">Rt</span>
+    <div>
+      <h1>Rectification Tracker</h1>
+      <small id="projectLabel">Inpatient Extension Building &mdash; Prince of Wales Hospital</small>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button id="btnImport" class="btn primary">Import Excel</button>
+    <button id="btnAdd" class="btn">Add Item</button>
+    <button id="btnExportXlsx" class="btn">Export .xlsx</button>
+    <button id="btnExportCsv" class="btn">Export .csv</button>
+  </div>
+</header>
+
+<section class="cards" id="cards"></section>
+
+<section class="toolbar">
+  <div class="tool-group">
+    <input id="search" type="search" placeholder="Search description / room / photo ref...">
+  </div>
+  <div class="tool-group">
+    <label>Priority
+      <select id="fPriority" multiple size="1" data-filter="priority"></select>
+    </label>
+    <label>Issue Type
+      <select id="fIssue" multiple size="1" data-filter="issue_type"></select>
+    </label>
+    <label>Category
+      <select id="fCategory" multiple size="1" data-filter="general_category"></select>
+    </label>
+    <label>Status
+      <select id="fStatus" multiple size="1" data-filter="status"></select>
+    </label>
+    <label>SoA
+      <select id="fSoa" multiple size="1" data-filter="soa"></select>
+    </label>
+    <label>Floor
+      <select id="fFloor" multiple size="1" data-filter="floor"></select>
+    </label>
+    <label>Ward/Unit
+      <select id="fWard" multiple size="1" data-filter="ward_unit"></select>
+    </label>
+    <label>Source File
+      <select id="fSource" multiple size="1" data-filter="source_file"></select>
+    </label>
+  </div>
+  <div class="tool-group">
+    <button id="btnClear" class="btn small">Clear</button>
+    <span id="sortInfo" class="sortinfo"></span>
+  </div>
+</section>
+
+<section class="table-wrap">
+  <table id="grid">
+    <thead><tr id="headRow"></tr></thead>
+    <tbody id="gridBody"></tbody>
+  </table>
+  <div id="emptyHint" class="empty" hidden>No records yet. Use <b>Import Excel</b> to load a handover inspection file, or <b>Add Item</b>.</div>
+  <div class="pager">
+    <span id="pageInfo"></span>
+    <button id="btnPrev" class="btn small">Prev</button>
+    <button id="btnNext" class="btn small">Next</button>
+    <span class="hint">Tip: click a column header to sort; Shift+click to add a secondary sort.</span>
+  </div>
+</section>
+
+<!-- modal -->
+<div class="modal-backdrop" id="modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Item</h2>
+      <button class="icon-btn" id="modalClose">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
