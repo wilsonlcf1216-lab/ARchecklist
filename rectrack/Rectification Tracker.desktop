@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Rectification Tracker
+Comment=Open the hospital building rectification progress tracker
+Exec=bash -c 'cd "$(dirname "%k")" || exit; exec bash "./Start Rectification Tracker.sh"'
+Terminal=true
+Categories=Office;

@@ -23,26 +23,40 @@ sort/filter the data by a single heading or any combination of headings.
 
 ## Run it
 
-Requires Python 3.9+. Only one dependency: `openpyxl`.
+Requires Python 3.9+ (`openpyxl` is the only extra component; the launcher installs it for you).
+
+### One-click start (no terminal needed)
+
+1. Install Python 3.9+ from python.org — **on Windows tick "Add Python to PATH"**.
+2. Double-click the launcher for your system, inside the `rectrack` folder:
+
+   | System | File to double-click |
+   |---|---|
+   | Windows | `Start Rectification Tracker.bat` |
+   | macOS | `Start Rectification Tracker.command` |
+   | Linux | `Start Rectification Tracker.sh` (or add `Rectification Tracker.desktop` to your desktop) |
+
+It starts the server and opens the tracker in your browser automatically.
+A small console window stays open — close it (or press Ctrl+C) to stop the tracker.
+
+> macOS: the first time, right-click the `.command` file → **Open** to get past Gatekeeper.
+
+### From a terminal (alternative)
 
 ```bash
-# macOS / Linux
 cd rectrack
 ./run.sh            # or: ./run.sh 8020
-
-# Windows
-rectrack\run.bat
 ```
 
-Then open <http://127.0.0.1:8010> in your browser. Press Ctrl+C in the terminal to stop.
-
-Manual start (any OS):
+Manual start on any OS:
 
 ```bash
 cd rectrack
 python3 -m pip install -r requirements.txt
-python3 server.py --port 8010
+python3 launcher.py
 ```
+
+Then open the URL it prints (default <http://127.0.0.1:8010>).
 
 ## Where your data lives
 
