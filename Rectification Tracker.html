@@ -325,9 +325,11 @@ td.desc { max-width: 340px; }
   <div class="topbar-actions">
     <button id="btnImport" class="btn primary">Import Excel</button>
     <button id="btnAdd" class="btn">Add Item</button>
+    <button id="btnDeleteAll" class="btn danger" title="Delete all items and photos">Delete All</button>
     <button id="btnExportXlsx" class="btn">Export .xlsx</button>
     <button id="btnExportCsv" class="btn">Export .csv</button>
     <button id="btnBackup" class="btn">Backup</button>
+    <button id="btnLock" class="btn" title="Click to unlock for editing">&#128274; Locked</button>
     <button id="btnHelp" class="btn">Help</button>
   </div>
 </header>
@@ -750,7 +752,7 @@ async function restoreBackup(obj) {
 }
 
 // ================================================================== ui ==
-const state = { filters: {}, sort: [], q: "", page: 0, pageSize: 100, objUrls: [] };
+const state = { filters: {}, sort: [], q: "", page: 0, pageSize: 100, objUrls: [], unlocked: false };
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function toast(msg, ms = 2800) {
@@ -938,6 +940,76 @@ function showModal(title, builder) {
   document.getElementById("modal").hidden = false;
 }
 function closeModal() { document.getElementById("modal").hidden = true; }
+
+// ================================================================ auth --
+const DEFAULT_PASSWORD = "rectrack";
+// Simple non-cryptographic hash (local-only; not real security, just a gate)
+function simpleHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return ("00000000" + (h >>> 0).toString(16)).slice(-8);
+}
+function getPasswordHash() { const s = (META.settings && META.settings.password_hash) || simpleHash(DEFAULT_PASSWORD); return s; }
+function setPasswordHash(h) { META.settings = META.settings || {}; META.settings.password_hash = h; putMeta("settings", META.settings); }
+function verifyPassword(pw) { return simpleHash(String(pw || "")) === getPasswordHash(); }
+function updateLockButton() {
+  const btn = document.getElementById("btnLock");
+  if (!btn) return;
+  if (state.unlocked) { btn.innerHTML = "&#128275; Unlocked"; btn.title = "Click to lock"; btn.classList.add("primary"); }
+  else { btn.innerHTML = "&#128274; Locked"; btn.title = "Click to unlock for editing"; btn.classList.remove("primary"); }
+}
+function openPasswordModal(onSuccess, title, onCancel) {
+  showModal(title || "Enter password", body => {
+    body.innerHTML = `<div class="meta-note">Enter the password to ${title ? "continue" : "unlock for editing"}.</div>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px">Password
+        <input id="pwInput" type="password" autofocus style="padding:8px 10px;border:1px solid var(--line-2);border-radius:6px;font-size:13px">
+      </label>
+      <div id="pwErr" style="color:var(--p1);font-size:12px;margin-top:6px;min-height:16px"></div>
+      <div class="modal-foot"><button class="btn" id="pwCancel">Cancel</button><button class="btn primary" id="pwSubmit">Unlock</button></div>`;
+    const input = document.getElementById("pwInput");
+    setTimeout(() => input.focus(), 50);
+    const submit = () => {
+      if (verifyPassword(input.value)) { closeModal(); onSuccess && onSuccess(); }
+      else { document.getElementById("pwErr").textContent = "Incorrect password. Try again."; input.select(); }
+    };
+    const cancel = () => { closeModal(); onCancel && onCancel(); };
+    document.getElementById("pwSubmit").addEventListener("click", submit);
+    document.getElementById("pwCancel").addEventListener("click", cancel);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") submit(); else if (e.key === "Escape") cancel(); });
+  });
+}
+function requireAuth() {
+  return new Promise(resolve => {
+    if (state.unlocked) return resolve(true);
+    openPasswordModal(() => { state.unlocked = true; updateLockButton(); resolve(true); }, "Enter password to unlock", () => resolve(false));
+  });
+}
+function toggleLock() {
+  if (state.unlocked) { state.unlocked = false; updateLockButton(); toast("Locked"); }
+  else requireAuth();
+}
+function openChangePassword() {
+  showModal("Change password", body => {
+    body.innerHTML = `
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px">Current password<input id="cpOld" type="password" style="padding:8px 10px;border:1px solid var(--line-2);border-radius:6px"></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:10px">New password<input id="cpNew" type="password" style="padding:8px 10px;border:1px solid var(--line-2);border-radius:6px"></label>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:10px">Confirm new password<input id="cpNew2" type="password" style="padding:8px 10px;border:1px solid var(--line-2);border-radius:6px"></label>
+      <div id="cpErr" style="color:var(--p1);font-size:12px;margin-top:8px;min-height:16px"></div>
+      <div class="modal-foot"><button class="btn" id="cpCancel">Cancel</button><button class="btn primary" id="cpSave">Save</button></div>`;
+    const oldPw = document.getElementById("cpOld");
+    setTimeout(() => oldPw.focus(), 50);
+    const save = () => {
+      const o = oldPw.value, n = document.getElementById("cpNew").value, n2 = document.getElementById("cpNew2").value;
+      const err = document.getElementById("cpErr");
+      if (!verifyPassword(o)) { err.textContent = "Current password is incorrect."; return; }
+      if (!n) { err.textContent = "New password cannot be empty."; return; }
+      if (n !== n2) { err.textContent = "New passwords do not match."; return; }
+      setPasswordHash(simpleHash(n)); closeModal(); toast("Password changed");
+    };
+    document.getElementById("cpSave").addEventListener("click", save);
+    document.getElementById("cpCancel").addEventListener("click", closeModal);
+  });
+}
 function selectOptions(selected, groups) {
   let html = `<option value="">-- select --</option>`;
   for (const [g, vals] of Object.entries(groups)) html += `<optgroup label="${esc(g)}">` + vals.map(v => `<option value="${esc(v)}" ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join("") + "</optgroup>";
@@ -963,7 +1035,8 @@ function itemFormHtml(it) {
 }
 function collectForm() { const v = id => { const el = document.getElementById(id); return el ? el.value : ""; }; return { soa: v("fld_soa"), room: v("fld_room"), priority: v("fld_priority"), issue_type: v("fld_issue_type"), general_category: v("fld_general_category"), status: v("fld_status"), expected_completion_date: v("fld_expected_completion_date"), floor: v("fld_floor"), ward_unit: v("fld_ward_unit"), photo_ref: v("fld_photo_ref"), description: v("fld_description"), remarks: v("fld_remarks") }; }
 
-function openItem(id) {
+async function openItem(id) {
+  if (!(await requireAuth())) return;
   const it = ITEMS.find(x => x.id === id); if (!it) return;
   showModal("Item #" + it.id, body => {
     body.innerHTML = itemFormHtml(it) +
@@ -1001,7 +1074,8 @@ async function uploadPhotos(itemId) {
   for (const f of input.files) addPhotoBlob(itemId, f.name, "upload", f);
   input.value = ""; toast("Photo(s) uploaded"); await renderPhotos(itemId); refresh();
 }
-function openAdd() {
+async function openAdd() {
+  if (!(await requireAuth())) return;
   showModal("Add item", body => {
     body.innerHTML = itemFormHtml({ status: "Not started" }) + `<div class="modal-foot"><button class="btn" id="btnCancel">Cancel</button><button class="btn primary" id="btnSave">Create item</button></div>`;
     document.getElementById("btnCancel").addEventListener("click", closeModal);
@@ -1010,7 +1084,8 @@ function openAdd() {
 }
 
 // -------------------------------------------------------------- import --
-function openImport() {
+async function openImport() {
+  if (!(await requireAuth())) return;
   showModal("Import handover inspection Excel", body => {
     body.innerHTML = `<div class="meta-note">Select one or more standard template files (same columns as the "Slag List" sheet). Every data row is added as a new item; blank template rows are ignored.</div>
       <label style="display:block;margin-bottom:10px">Excel file(s)<br><input type="file" id="impFiles" accept=".xlsx,.xlsm" multiple></label>
@@ -1063,6 +1138,7 @@ function openBackup() {
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0">
         <button class="btn primary" id="btnSaveBackup">Save backup (.json)</button>
         <button class="btn" id="btnLoadBackup">Restore from backup</button>
+        <button class="btn" id="btnChangePw">Change password</button>
         <button class="btn danger" id="btnWipe">Delete all data</button>
       </div>
       <input type="file" id="restoreFile" accept=".json" hidden>
@@ -1079,8 +1155,18 @@ function openBackup() {
       try { await restoreBackup(JSON.parse(await f.text())); toast("Backup restored"); closeModal(); state.page = 0; refresh(); }
       catch (err) { toast("Restore failed: " + err.message, 5000); }
     });
-    document.getElementById("btnWipe").addEventListener("click", () => { if (confirm("Delete ALL items and photos? This cannot be undone.")) { clearAll(); toast("All data deleted"); closeModal(); refresh(); } });
+    document.getElementById("btnChangePw").addEventListener("click", openChangePassword);
+    document.getElementById("btnWipe").addEventListener("click", async () => {
+      if (!(await requireAuth())) return;
+      if (!confirm("Delete ALL items and photos? This cannot be undone.")) return;
+      clearAll(); toast("All data deleted"); closeModal(); refresh();
+    });
   });
+}
+async function deleteAllData() {
+  if (!(await requireAuth())) return;
+  if (!confirm("Delete ALL items and photos? This cannot be undone.")) return;
+  clearAll(); toast("All data deleted"); refresh();
 }
 function openHelp() {
   showModal("How to use", body => {
@@ -1090,6 +1176,8 @@ function openHelp() {
       <p><b>Filter:</b> use the dropdown buttons; tick several values to combine conditions.</p>
       <p><b>Update progress:</b> click a row to change Status and Expected Completion Date, and to add photos. Rectified/Verified dates are stamped automatically.</p>
       <p><b>Export:</b> <b>Export .xlsx</b> / <b>.csv</b> exports exactly the current sorted &amp; filtered view.</p>
+      <p><b>Lock &amp; password:</b> the app starts <b>locked</b> (read-only). Click the <b>&#128274; Locked</b> button and enter the password to add, edit, or delete items. Default password is <b>rectrack</b> \u2014 change it anytime via <b>Backup &rarr; Change password</b>.</p>
+      <p><b>Delete all:</b> use the <b>Delete All</b> button (top bar) or <b>Backup &rarr; Delete all data</b> \u2014 both require the password and a confirmation.</p>
       <p><b>Backup:</b> use <b>Backup</b> regularly \u2014 it saves everything (items + photos) to one file you can keep in your GitHub repo or OneDrive.</p>
       <p><b>Where is my data?</b> ${storageOK ? "Saved automatically in this browser on this PC." : "<span style='color:#b91c1c'>Automatic saving is NOT available in this browser/mode \u2014 use Backup before closing, and Restore to load it next time. For autosave, open this file in Google Chrome or Microsoft Edge.</span>"}</p>
     </div>`;
@@ -1121,9 +1209,12 @@ async function boot() {
   document.getElementById("btnExportCsv").addEventListener("click", () => exportCsv(queryItems()));
   document.getElementById("btnBackup").addEventListener("click", openBackup);
   document.getElementById("btnHelp").addEventListener("click", openHelp);
+  document.getElementById("btnLock").addEventListener("click", toggleLock);
+  document.getElementById("btnDeleteAll").addEventListener("click", deleteAllData);
   document.getElementById("modalClose").addEventListener("click", closeModal);
   document.getElementById("modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+  updateLockButton();
 }
 boot().catch(e => { console.error(e); alert("Startup error: " + e.message); });
 
