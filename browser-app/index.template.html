@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hospital Building Rectification Tracker</title>
+<style>
+{{CSS}}
+</style>
+</head>
+<body>
+<div id="storageBanner" class="banner">
+  Automatic saving is not available in this browser/mode. Your data will be lost when you close this tab &mdash;
+  use <b>Backup</b> before closing and <b>Restore</b> next time. For automatic saving, open this file in
+  <b>Google Chrome</b> or <b>Microsoft Edge</b>.
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">RT</div>
+    <div>
+      <h1>Hospital Building Rectification Tracker</h1>
+      <small>Handover inspection &amp; defect rectification progress</small>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button id="btnImport" class="btn primary">Import Excel</button>
+    <button id="btnAdd" class="btn">Add Item</button>
+    <button id="btnExportXlsx" class="btn">Export .xlsx</button>
+    <button id="btnExportCsv" class="btn">Export .csv</button>
+    <button id="btnBackup" class="btn">Backup</button>
+    <button id="btnHelp" class="btn">Help</button>
+  </div>
+</header>
+
+<section class="cards" id="cards"></section>
+
+<section class="toolbar">
+  <div class="tool-group">
+    <input id="search" type="search" placeholder="Search room / description / ref / item no...">
+    <div id="filterGroup" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <button id="btnClear" class="btn small">Clear filters</button>
+  </div>
+  <div class="tool-group aside">
+    <span id="sortInfo" class="sortinfo"></span>
+  </div>
+</section>
+
+<section class="table-wrap">
+  <table>
+    <thead><tr id="headRow"></tr></thead>
+    <tbody id="gridBody"></tbody>
+  </table>
+  <div id="emptyHint" class="empty" hidden>No items yet. Click <b>Import Excel</b> to load your handover inspection list.</div>
+  <div class="pager">
+    <button id="btnPrev" class="btn small">&laquo; Prev</button>
+    <span id="pageInfo"></span>
+    <button id="btnNext" class="btn small">Next &raquo;</button>
+    <span class="hint">Tip: click a header to sort &middot; hold Shift and click another to combine &middot; click a row to edit</span>
+  </div>
+</section>
+
+<div id="modal" class="modal-backdrop" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Details</h2>
+      <button id="modalClose" class="icon-btn">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+{{SHEETJS}}
+</script>
+<script>
+{{APPJS}}
+</script>
+</body>
+</html>

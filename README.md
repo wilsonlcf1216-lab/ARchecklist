@@ -23,9 +23,25 @@ sort/filter the data by a single heading or any combination of headings.
 
 ## Run it
 
+### Option A — no install at all (single HTML file)
+
+Use **`Rectification Tracker.html`**. It is one self-contained file — no Python,
+no setup, works offline.
+
+1. Download/save the file somewhere permanent.
+2. **Double-click it** to open in **Google Chrome** or **Microsoft Edge**.
+3. Use it like any web page. Data is saved automatically inside that browser on
+   that PC. Use the **Backup** button to save everything (items + photos) to one
+   file, and **Restore** to load it on another PC.
+
+> Keep using the same browser on the same PC so the saved data stays put. Back up
+> regularly (e.g. keep the `.json` backup in your GitHub repo or OneDrive).
+
+### Option B — Python app (`rectrack/` folder)
+
 Requires Python 3.9+ (`openpyxl` is the only extra component; the launcher installs it for you).
 
-### One-click start (no terminal needed)
+#### One-click start (no terminal needed)
 
 1. Install Python 3.9+ from python.org — **on Windows tick "Add Python to PATH"**.
 2. Double-click the launcher for your system, inside the `rectrack` folder:
@@ -60,7 +76,11 @@ Then open the URL it prints (default <http://127.0.0.1:8010>).
 
 ## Where your data lives
 
-Everything is stored under `rectrack/data/`:
+**Single-file app (Option A):** data is saved inside the browser you opened it with
+(Chrome/Edge) on that PC. Use **Backup** to export everything to a `.json` file and
+**Restore** to load it back — keep those backups in GitHub/OneDrive for safety.
+
+**Python app (Option B):** everything is stored under `rectrack/data/`:
 
 - `rectrack.db` — the SQLite database (all items, imports, photo links)
 - `photos/` — copies of all attached images
