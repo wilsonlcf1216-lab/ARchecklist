@@ -620,6 +620,8 @@ function makeMulti(def) {
     foot.appendChild(clearBtn); menu.appendChild(foot);
   }
   btn.addEventListener("click", e => { e.stopPropagation(); const was = menu.hidden; document.querySelectorAll(".multi-menu").forEach(m => (m.hidden = true)); menu.hidden = !was; });
+  // Keep the menu open while interacting with it (so you can tick multiple boxes).
+  menu.addEventListener("click", e => e.stopPropagation());
   wrap.appendChild(btn); wrap.appendChild(menu); render();
   return wrap;
 }
