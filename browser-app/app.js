@@ -901,15 +901,27 @@ function openChangePassword() {
   });
 }
 function selectOptions(selected, groups) {
+  const all = Object.values(groups).flat();
   let html = `<option value="">-- select --</option>`;
+  // Preserve a value that is not in the reference list, so editing never wipes it.
+  if (selected && !all.includes(selected)) html += `<option value="${esc(selected)}" selected>${esc(selected)}</option>`;
   for (const [g, vals] of Object.entries(groups)) html += `<optgroup label="${esc(g)}">` + vals.map(v => `<option value="${esc(v)}" ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join("") + "</optgroup>";
   return html;
 }
-function listOptions(list, selected) { return `<option value="">-- select --</option>` + list.map(v => `<option value="${esc(v)}" ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join(""); }
+function listOptions(list, selected) {
+  let html = `<option value="">-- select --</option>`;
+  // Preserve a value that is not in the reference list, so editing never wipes it.
+  if (selected && !list.includes(selected)) html += `<option value="${esc(selected)}" selected>${esc(selected)}</option>`;
+  return html + list.map(v => `<option value="${esc(v)}" ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join("");
+}
+function soaDatalist() {
+  const vals = [...new Set(ITEMS.map(i => i.soa).filter(Boolean))].sort();
+  return `<datalist id="soaList">` + vals.map(v => `<option value="${esc(v)}">`).join("") + `</datalist>`;
+}
 function itemFormHtml(it) {
   it = it || {}; const r = reference();
   return `<div class="form-grid">
-    <label>SoA / Area type <select id="fld_soa">${selectOptions(it.soa, r.soa_groups)}</select></label>
+    <label>SoA / Area <input id="fld_soa" list="soaList" value="${esc(it.soa)}" placeholder="e.g. 10.02.08">${soaDatalist()}</label>
     <label>Room <input id="fld_room" value="${esc(it.room)}" placeholder="e.g. 6-Beds Cubicle"></label>
     <label>Priority Level <select id="fld_priority">${listOptions(r.priority_levels, it.priority)}</select></label>
     <label>Type of Issue <select id="fld_issue_type">${listOptions(r.issue_types, it.issue_type)}</select></label>
