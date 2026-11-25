@@ -455,7 +455,10 @@ function cleanCell(v) {
   if (v == null) return "";
   if (v instanceof Date) return v.toISOString().slice(0, 10);
   if (typeof v === "number" && Number.isInteger(v)) return String(v);
-  return String(v).trim();
+  const s = String(v).trim();
+  // treat common placeholders as blank so template-only rows are not counted
+  if (/^[-–—.]+$/.test(s) || /^(n\/?a|nil|none|null)$/i.test(s)) return "";
+  return s;
 }
 
 function parseWorkbook(buf, filename) {
@@ -487,23 +490,28 @@ function parseWorkbook(buf, filename) {
   }
   if (headerIdx < 0) throw new Error("Could not find the header row. Expected a row with 'Item No.' and 'Priority Level' (the standard 'Slag List' template).");
   const rows = [];
+  let blankRows = 0;
   // For merged cells (e.g. SoA / Room spanning several rows), carry the value downwards.
   const FILL_DOWN = ["soa", "room", "floor", "ward_unit"];
+  // A row only counts as a real item if it has at least one of these (an item number
+  // alone — as in the blank template — is NOT an item).
+  const SUBSTANTIVE = ["soa", "room", "priority", "issue_type", "general_category", "description", "photo_ref", "expected_completion_date", "status"];
   const lastVal = {};
   for (let i = headerIdx + 1; i < aoa.length; i++) {
     const row = aoa[i] || [];
     const rec = {};
     for (const ci in colMap) rec[colMap[ci]] = cleanCell(row[ci]);
+    const hasContent = SUBSTANTIVE.some(f => rec[f] && String(rec[f]).trim());
+    if (!hasContent) { blankRows++; continue; }
     // fill-down for grouping columns that are commonly merged
     FILL_DOWN.forEach(f => {
       if (rec[f]) lastVal[f] = rec[f];
       else if (lastVal[f]) rec[f] = lastVal[f];
     });
-    if (!["soa", "room", "priority", "issue_type", "general_category", "description", "photo_ref", "expected_completion_date"].some(f => rec[f])) continue;
     rec.floor = meta.floor; rec.ward_unit = meta.ward_unit;
     rows.push(rec);
   }
-  return { meta, rows };
+  return { meta, rows, blankRows };
 }
 
 function exportXlsx(rows) {
@@ -733,7 +741,8 @@ function renderSummary() {
   const byStatus = {}, byPriority = {}; let overdue = 0;
   ITEMS.forEach(i => { byStatus[i.status] = (byStatus[i.status] || 0) + 1; byPriority[i.priority || "(blank)"] = (byPriority[i.priority || "(blank)"] || 0) + 1; if (isOverdue(i)) overdue++; });
   const doneCount = (byStatus["Rectified"] || 0) + (byStatus["Verified"] || 0);
-  const pct = ITEMS.length ? Math.round((doneCount / ITEMS.length) * 100) : 0;
+  // Round DOWN so e.g. 199/200 shows 99%, never a misleading 100% before all are done.
+  const pct = ITEMS.length ? Math.floor((doneCount / ITEMS.length) * 100) : 0;
   const cards = [
     { n: ITEMS.length, l: "Total items" },
     { n: overdue, l: "Overdue", cls: "overdue" },
@@ -925,23 +934,27 @@ async function openImport() {
 async function doImport() {
   const files = document.getElementById("impFiles").files;
   if (!files.length) { toast("Choose an Excel file"); return; }
-  let totalRows = 0;
+  let totalRows = 0, skipped = 0;
   try {
     for (const file of files) {
       const buf = await file.arrayBuffer();
-      const { meta, rows } = parseWorkbook(buf, file.name);
+      const { meta, rows, blankRows } = parseWorkbook(buf, file.name);
       rows.forEach(r => addItem({ ...r, source_file: file.name }));
       const imports = META.imports || [];
       imports.push({ filename: file.name, ...meta, row_count: rows.length, imported_at: nowStamp() });
       putMeta("imports", imports);
       totalRows += rows.length;
+      skipped += (blankRows || 0);
     }
   } catch (e) { toast("Import error: " + e.message, 5000); return; }
 
   const folder = document.getElementById("impFolder");
   let matched = 0;
   if (folder && folder.files.length) matched = await matchFolderPhotos(folder.files);
-  toast(`Imported ${totalRows} item(s)` + (matched ? `, matched ${matched} photo(s)` : ""));
+  let msg = `Imported ${totalRows} item(s)`;
+  if (skipped) msg += ` — skipped ${skipped} blank/template row(s)`;
+  if (matched) msg += `, matched ${matched} photo(s)`;
+  toast(msg, 6000);
   closeModal(); state.page = 0; refresh();
 }
 async function matchFolderPhotos(files) {
