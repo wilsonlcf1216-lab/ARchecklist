@@ -566,7 +566,7 @@ async function restoreBackup(obj) {
 }
 
 // ================================================================== ui ==
-const state = { filters: {}, sort: [], q: "", page: 0, pageSize: 100, objUrls: [], unlocked: false };
+const state = { filters: {}, sort: [], q: "", page: 0, pageSize: 100, objUrls: [], unlocked: false, incompleteOnly: false, _openMenu: null, _fsig: "" };
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function toast(msg, ms = 2800) {
@@ -579,23 +579,41 @@ function flatOptions(def) {
   if (def.fromRef) { const v = reference()[def.fromRef]; return Array.isArray(v) ? v.slice() : Object.values(v).flat(); }
   return [];
 }
-function facets() { const out = {}; FILTERABLE_COLUMNS.forEach(c => { out[c] = [...new Set(ITEMS.map(i => i[c]).filter(v => v !== undefined && v !== null && v !== ""))].sort(); }); return out; }
+// Values available for a column, considering all OTHER active filters (cascading).
+function facetValues(col) {
+  const avail = new Set();
+  for (const it of ITEMS) {
+    if (!matches(it, col)) continue;
+    const v = it[col];
+    if (v != null && v !== "") avail.add(v);
+  }
+  return avail;
+}
 function filterOptions(def) {
-  if (def.fromFacet) return facets()[def.col] || [];
-  const base = flatOptions(def);
-  const extra = (facets()[def.col] || []).filter(x => !base.includes(x));
-  return base.concat(extra);
+  const avail = facetValues(def.col);
+  (state.filters[def.col] || []).forEach(v => avail.add(v)); // keep selected values visible
+  if (def.fromRef) {
+    const base = flatOptions(def);
+    const inBase = base.filter(v => avail.has(v));
+    const extra = [...avail].filter(v => !base.includes(v)).sort();
+    return inBase.concat(extra);
+  }
+  return [...avail].sort();
 }
 
 function buildFilterWidgets() {
   const host = document.getElementById("filterGroup");
   host.innerHTML = "";
   FILTER_DEFS.forEach(def => host.appendChild(makeMulti(def)));
+  // Re-open the menu the user was interacting with (cascading rebuilds would otherwise close it).
+  if (state._openMenu) {
+    host.querySelectorAll(".multi-menu").forEach(m => { if (m.dataset.col === state._openMenu) m.hidden = false; });
+  }
 }
 function makeMulti(def) {
   const wrap = document.createElement("label"); wrap.className = "multi";
   const btn = document.createElement("button"); btn.type = "button"; btn.className = "multi-btn";
-  const menu = document.createElement("div"); menu.className = "multi-menu"; menu.hidden = true;
+  const menu = document.createElement("div"); menu.className = "multi-menu"; menu.hidden = true; menu.dataset.col = def.col;
   const render = () => { const sel = state.filters[def.col] || []; btn.textContent = def.label + (sel.length ? ": " + sel.join(", ") : ": Any"); btn.classList.toggle("active", sel.length > 0); };
   const opts = filterOptions(def);
   if (!opts.length) { const e = document.createElement("div"); e.className = "multi-empty"; e.textContent = "No values yet"; menu.appendChild(e); }
@@ -627,20 +645,30 @@ function makeMulti(def) {
     });
     foot.appendChild(clearBtn); menu.appendChild(foot);
   }
-  btn.addEventListener("click", e => { e.stopPropagation(); const was = menu.hidden; document.querySelectorAll(".multi-menu").forEach(m => (m.hidden = true)); menu.hidden = !was; });
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    const isOpen = !menu.hidden;
+    document.querySelectorAll(".multi-menu").forEach(m => (m.hidden = true));
+    menu.hidden = isOpen;            // toggle
+    state._openMenu = isOpen ? null : def.col;
+  });
   // Keep the menu open while interacting with it (so you can tick multiple boxes).
   menu.addEventListener("click", e => e.stopPropagation());
   wrap.appendChild(btn); wrap.appendChild(menu); render();
   return wrap;
 }
 function clearFilters() {
-  state.filters = {}; state.q = ""; state.sort = []; state.page = 0;
+  state.filters = {}; state.q = ""; state.sort = []; state.page = 0; state.incompleteOnly = false; state._openMenu = null;
   document.getElementById("search").value = "";
   renderHead(); buildFilterWidgets(); refresh();
 }
 
-function matches(it) {
-  for (const [col, vals] of Object.entries(state.filters)) { if (vals && vals.length && !vals.includes(it[col] || "")) return false; }
+function matches(it, exceptCol) {
+  for (const [col, vals] of Object.entries(state.filters)) {
+    if (col === exceptCol) continue;
+    if (vals && vals.length && !vals.includes(it[col] || "")) return false;
+  }
+  if (state.incompleteOnly && !isIncomplete(it)) return false;
   if (state.q) {
     const s = state.q.toLowerCase();
     const hay = [it.description, it.room, it.photo_ref, it.item_no, it.remarks, it.soa, it.general_category, it.issue_type, it.status, it.floor, it.ward_unit, it.source_file].map(x => (x || "").toLowerCase()).join(" ");
@@ -682,8 +710,20 @@ function toggleSort(field, additive) {
 }
 function statusClass(s) { return "status-" + String(s || "").replace(/ /g, "."); }
 function isOverdue(it) { return it.expected_completion_date && !["Rectified", "Verified"].includes(it.status) && it.expected_completion_date < todayStr(); }
+// Required fields for a complete data entry (everything except Status, which is progress).
+const REQUIRED_FIELDS = [
+  ["item_no", "Item No."], ["soa", "SoA"], ["room", "Room"], ["priority", "Priority Level"],
+  ["issue_type", "Type of Issue"], ["general_category", "General Category"],
+  ["description", "Details Description"], ["photo_ref", "Photo Reference Number"],
+  ["expected_completion_date", "Expected Completion Date"],
+];
+function missingFields(it) {
+  return REQUIRED_FIELDS.filter(([f]) => !String(it[f] == null ? "" : it[f]).trim()).map(([, l]) => l);
+}
+function isIncomplete(it) { return missingFields(it).length > 0; }
+function incompleteCount() { return ITEMS.filter(isIncomplete).length; }
 
-function facetsSig() { const f = facets(); return FILTERABLE_COLUMNS.map(c => (f[c] || []).join("\u0001")).join("\u0002"); }
+function facetsSig() { return FILTER_DEFS.map(def => def.col + "=" + [...facetValues(def.col)].sort().join("\u0001")).join("\u0002") + "|" + (state.incompleteOnly ? "inc" : ""); }
 
 function refresh() {
   revokeUrls();
@@ -700,9 +740,17 @@ function refresh() {
   document.getElementById("btnPrev").disabled = state.page === 0;
   document.getElementById("btnNext").disabled = start + state.pageSize >= total;
   renderSummary();
+  updateMissingButton();
   const sig = facetsSig();
   if (sig !== state._fsig) { state._fsig = sig; buildFilterWidgets(); }
   fillThumbs();
+}
+function updateMissingButton() {
+  const el = document.getElementById("btnMissing"); if (!el) return;
+  const n = incompleteCount();
+  el.textContent = "\u26a0 Missing data: " + n;
+  el.classList.toggle("active", !!state.incompleteOnly);
+  el.disabled = n === 0 && !state.incompleteOnly;
 }
 function renderRows(items, counts) {
   const body = document.getElementById("gridBody"); body.innerHTML = "";
@@ -711,12 +759,15 @@ function renderRows(items, counts) {
   items.forEach((it, i) => {
     const tr = document.createElement("tr");
     tr.addEventListener("click", () => openItem(it.id));
+    const miss = missingFields(it);
+    if (miss.length) { tr.classList.add("row-incomplete"); tr.title = "Missing: " + miss.join(", "); }
     const n = counts.get(it.id) || 0;
     const photoCell = n
       ? `<img class="thumb" data-photo="${firstPhotoId(it.id)}" alt=""><span class="photocount" title="${n} photo(s)">${n}</span>`
       : `<span class="photocount" title="No photos">0</span>`;
+    const itemCell = esc(it.item_no) + (miss.length ? ` <span class="miss-flag" title="Missing: ${esc(miss.join(", "))}">\u26a0</span>` : "");
     const cells = [
-      start + i + 1, esc(it.item_no), esc(it.soa), esc(it.room),
+      start + i + 1, itemCell, esc(it.soa), esc(it.room),
       it.priority ? `<span class="prio prio-${esc(it.priority)}">${esc(it.priority)}</span>` : "",
       esc(it.issue_type), esc(it.general_category), `<div class="desc">${esc(it.description)}</div>`,
       esc(it.photo_ref),
@@ -751,22 +802,25 @@ function renderSummary() {
   Object.keys(byStatus).filter(k => !STATUSES.includes(k)).forEach(k => cards.push({ n: byStatus[k], l: k || "(blank)" }));
   // completion percentage card goes after Verified
   cards.push({ n: pct + "%", l: "Rectified (" + doneCount + "/" + ITEMS.length + ")", cls: "progress" });
+  const miss = incompleteCount();
+  if (miss) cards.push({ n: miss, l: "Incomplete entries", cls: "incomplete" });
   document.getElementById("cards").innerHTML = cards.map(c => `<div class="card ${c.cls || ""}"><div class="n">${c.n}</div><div class="l">${esc(c.l)}</div></div>`).join("");
 }
 function renderFilteredSummary(items) {
   const el = document.getElementById("filteredSummary");
   if (!el) return;
-  const hasFilter = state.q || Object.values(state.filters).some(v => v && v.length);
+  const hasFilter = state.q || state.incompleteOnly || Object.values(state.filters).some(v => v && v.length);
   if (!hasFilter) { el.hidden = true; el.innerHTML = ""; return; }
-  const byStatus = {}; let overdue = 0;
-  items.forEach(i => { byStatus[i.status] = (byStatus[i.status] || 0) + 1; if (isOverdue(i)) overdue++; });
+  const byStatus = {}; let overdue = 0, incomplete = 0;
+  items.forEach(i => { byStatus[i.status] = (byStatus[i.status] || 0) + 1; if (isOverdue(i)) overdue++; if (isIncomplete(i)) incomplete++; });
   el.hidden = false;
   el.innerHTML = `<span class="fs-label">Selected (${items.length}):</span>` +
     `<span class="fs-chip overdue" title="Overdue">Overdue: ${overdue}</span>` +
     `<span class="fs-chip not-started" title="Not started">Not started: ${byStatus["Not started"] || 0}</span>` +
     `<span class="fs-chip in-progress" title="In progress">In progress: ${byStatus["In progress"] || 0}</span>` +
     `<span class="fs-chip rectified" title="Rectified">Rectified: ${byStatus["Rectified"] || 0}</span>` +
-    `<span class="fs-chip verified" title="Verified">Verified: ${byStatus["Verified"] || 0}</span>`;
+    `<span class="fs-chip verified" title="Verified">Verified: ${byStatus["Verified"] || 0}</span>` +
+    (incomplete ? `<span class="fs-chip incomplete" title="Missing required fields">Incomplete: ${incomplete}</span>` : "");
 }
 
 // --------------------------------------------------------------- modal --
@@ -1061,11 +1115,16 @@ async function boot() {
 
   renderHead();
   updateSharedIndicator();
-  document.addEventListener("click", () => document.querySelectorAll(".multi-menu").forEach(m => (m.hidden = true)));
+  document.addEventListener("click", () => { document.querySelectorAll(".multi-menu").forEach(m => (m.hidden = true)); state._openMenu = null; });
   refresh();
 
   document.getElementById("search").addEventListener("input", e => { state.q = e.target.value.trim(); state.page = 0; clearTimeout(window._st); window._st = setTimeout(refresh, 250); });
   document.getElementById("btnClear").addEventListener("click", clearFilters);
+  document.getElementById("btnMissing").addEventListener("click", () => {
+    if (incompleteCount() === 0 && !state.incompleteOnly) { toast("All items have complete data"); return; }
+    state.incompleteOnly = !state.incompleteOnly; state.page = 0; refresh();
+    if (state.incompleteOnly) toast("Showing only items with missing data");
+  });
   document.getElementById("btnPrev").addEventListener("click", () => { if (state.page > 0) { state.page--; refresh(); } });
   document.getElementById("btnNext").addEventListener("click", () => { state.page++; refresh(); });
   document.getElementById("btnAdd").addEventListener("click", openAdd);

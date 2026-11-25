@@ -151,6 +151,13 @@ a.btn { display: inline-flex; text-decoration: none; }
 .card.overdue { border-color: #fecaca; background: var(--p1-soft); }
 .card.progress .n { color: var(--done); }
 .card.progress { border-color: #bbf7d0; background: var(--done-soft); }
+.card.incomplete .n { color: #b45309; }
+.card.incomplete { border-color: #fde68a; background: #fffbeb; }
+.btn.active { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+.filtered-summary .fs-chip.incomplete { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.miss-flag { color: #b45309; cursor: help; }
+tr.row-incomplete td { background: #fffdf5; }
+tr.row-incomplete:hover td { background: #fffbeb; }
 
 /* ----------------------------------------------------------- toolbar -- */
 .toolbar {
